@@ -1,0 +1,25 @@
+{
+  "name": "@morv/cli",
+  "version": "0.1.0",
+  "description": "Morv CLI — AI agent SDK command line tool",
+  "bin": {
+    "morv": "./dist/index.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "inquirer": "^8.2.6",
+    "@morv-labs/morv": "0.1.0",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^8.2.10",
+    "typescript": "^5.4.5"
+  },
+  "license": "MIT"
+}

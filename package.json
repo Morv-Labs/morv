@@ -1,0 +1,17 @@
+{
+  "name": "morv",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Morv — Open-source AI agent SDK (AgentGuard + MCP + x402 + Base mainnet)",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/sdk && npm run build -w packages/cli",
+    "test": "npm run test -w packages/sdk"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
