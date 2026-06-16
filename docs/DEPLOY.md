@@ -1,150 +1,100 @@
-# Deploy — Open Source
+# Deploy & Publish
 
-This guide covers publishing the **public** `morv` repository (SDK + CLI). The hosted backend is deployed separately from [morv-server](https://github.com/Morv-Labs/morv-server).
+Guide for building, testing, and publishing the Morv SDK and CLI.
 
 ---
 
-## 1. GitHub (public repository)
+## Install from source
 
-### Prerequisites
-
-- Build and tests pass in the private monorepo
-- No secrets in the `morv/` folder
-
-### Sync from private monorepo
-
-```powershell
-cd "D:\coding\Morv Labs"
-node scripts/sync-opensource.mjs
+```bash
+git clone https://github.com/Morv-Labs/morv.git
 cd morv
 npm install
 npm run build
-npm run test
+npm test
 ```
-
-### Push to GitHub
-
-Create a **public** repository: `https://github.com/Morv-Labs/morv`
-
-```powershell
-cd morv
-git init
-git branch -M main
-git add .
-git status    # verify: no .env, no node_modules, no dist/
-git commit -m "feat: morv SDK and CLI v0.1.0"
-git remote add origin https://github.com/Morv-Labs/morv.git
-git push -u origin main
-```
-
-### What to include
-
-```
-morv/
-├── packages/sdk/
-├── packages/cli/
-├── examples/
-├── docs/
-├── README.md
-├── LICENSE
-└── .env.example
-```
-
-### What to exclude
-
-- `packages/backend/`, `packages/dashboard/`
-- `.env` files with keys
-- `node_modules/`, `dist/`
 
 ---
 
-## 2. npm (SDK package)
+## npm publish
 
-The publishable package is `packages/sdk` (name: `morv`).
+The publishable package is `@morv-labs/morv` in `packages/sdk`.
 
-```powershell
-cd morv/packages/sdk
+```bash
+cd packages/sdk
 npm run build
 npm test
 npm login
 npm publish --access public
 ```
 
-After publish, users install with:
+Users install with:
 
 ```bash
-npm install morv
+npm install @morv-labs/morv
 ```
 
 ### Version bumps
 
-Update version in:
-
-- `morv/packages/sdk/package.json`
-- `morv/package.json` (workspace root)
-- `morv/packages/cli/package.json` (`morv` dependency version)
+1. Update `version` in `packages/sdk/package.json`
+2. Update `@morv-labs/morv` dependency version in `packages/cli/package.json`
+3. `npm run build && npm test`
+4. `npm publish --access public` from `packages/sdk`
 
 ---
 
-## 3. CLI distribution
+## CLI usage (npx)
 
-**Option A — npm (recommended)**
-
-Publish `@morv/cli` as a separate package, or bundle CLI instructions in the main README with `npx morv` once CLI is published.
-
-**Option B — GitHub install**
+After SDK publish, the CLI resolves the SDK dependency:
 
 ```bash
-git clone https://github.com/Morv-Labs/morv.git
-cd morv && npm install && npm run build
-npm link -w packages/cli
+npx morv init
 ```
 
-**Option C — npx from GitHub** (after repo is public)
+For local development:
 
 ```bash
-npx github:Morv-Labs/morv/packages/cli
+npm run build
+node packages/cli/dist/index.js --help
 ```
 
 ---
 
-## 4. Connect SDK to hosted backend
+## Environment
 
-The open-source SDK works standalone or with the Morv hosted API.
+Copy `.env.example` to `.env` in your project:
 
-Set in `.env` or shell:
-
-```env
-MORV_API_BASE_URL=https://your-backend.up.railway.app
-MORV_API_KEY=mv_...
+```bash
+cp .env.example .env
 ```
 
-Deploy the backend from [morv-server](https://github.com/Morv-Labs/morv-server) (Railway or similar). See `railway.toml` in that repository.
+Required for agents with models:
+
+- `OPENAI_API_KEY` (or provider of choice)
+
+Required for onchain payments:
+
+- `MORV_WALLET_PRIVATE_KEY` or `BANKR_API_KEY` + `BANKR_AGENT_ADDRESS`
+
+Optional gateway ([morv.run](https://morv.run)):
+
+- `MORV_API_BASE_URL`
+- `MORV_API_KEY`
 
 ---
 
-## 5. Release checklist
+## Production checklist
 
-- [ ] `npm run build` passes in `morv/`
-- [ ] `npm run test` passes
-- [ ] README and docs reflect current features
-- [ ] No `.env` or private keys in git
-- [ ] Version bumped in `package.json` files
-- [ ] GitHub push (public repo)
-- [ ] npm publish (when ready for public install)
+- [ ] AgentGuard policy configured (`dailyLimitUsd`, `perTxLimitUsd`)
+- [ ] Wallet funded with USDC on Base
+- [ ] Model API keys set (BYOM)
+- [ ] `BASE_RPC_URL` points to reliable RPC
+- [ ] Never commit `.env` or private keys
 
 ---
 
-## 6. Update workflow
+## Links
 
-After changes in the private monorepo:
-
-```powershell
-cd "D:\coding\Morv Labs"
-npm run build -w packages/morv
-npm run test -w packages/morv
-node scripts/sync-opensource.mjs
-cd morv && npm run build && git add . && git commit -m "sync: sdk update" && git push
-```
-
-Keep private server changes in `morv-server`; keep SDK/CLI changes synced to `morv`.
+- Website: [morv.run](https://morv.run)
+- X: [@morvlabs](https://x.com/morvlabs)
+- npm: [@morv-labs/morv](https://www.npmjs.com/package/@morv-labs/morv)

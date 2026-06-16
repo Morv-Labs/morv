@@ -1,7 +1,7 @@
 {
   "name": "@morv-labs/morv",
   "version": "0.1.0",
-  "description": "Morv SDK — AI agent infrastructure with MCP tools, x402 payments, and AgentGuard policy enforcement",
+  "description": "Infrastructure for autonomous AI agents on Base — MCP, x402, AgentGuard",
   "publishConfig": {
     "access": "public"
   },

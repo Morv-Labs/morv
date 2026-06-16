@@ -1,143 +1,170 @@
 # Morv
 
-Open-source SDK and CLI for building AI agents on [Base](https://base.org) with MCP tools, x402 payments, and spending policies.
+![SDK v0.1](https://img.shields.io/badge/sdk-v0.1-black)
+![Network](https://img.shields.io/badge/network-Base%20(8453)-0052FF)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-**Morv Labs** provides the hosted control plane (gateway, credits, marketplace) separately. This repository contains the client-side SDK and CLI only.
+<div align="center">
+  <img src="icon.jpg" alt="Morv Labs" width="160" />
+  <br /><br />
+  <a href="https://morv.run"><strong>morv.run</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://x.com/morvlabs">@morvlabs</a>
+  &nbsp;·&nbsp;
+  <a href="https://www.npmjs.com/package/@morv-labs/morv">npm</a>
+</div>
+
+<br />
+
+**Infrastructure for autonomous AI agents on Base — MCP tools, x402 payments, and spending policy in one SDK.**
+
+Morv is the operating layer agents use to discover tools, pay for APIs, and stay within guardrails. Built for builders shipping onchain agents on [Base](https://base.org).
+
+```bash
+npm install @morv-labs/morv
+npx morv init
+npx morv agent create demo --tools base-eth-price --daily 50 --per-tx 10
+npx morv run "What is the ETH price on Base?"
+```
+
+---
+
+## Quick start
+
+```typescript
+import { MorvClient, createPlatformWalletFromEnv } from '@morv-labs/morv';
+
+const wallet = createPlatformWalletFromEnv();
+const morv = new MorvClient();
+
+const agent = await morv.createAgent(
+  {
+    id: 'my-agent',
+    model: { provider: 'openai', model: 'gpt-4o-mini', apiKey: process.env.OPENAI_API_KEY! },
+    policy: { dailyLimitUsd: 50, perTxLimitUsd: 10, autoPause: true },
+    tools: ['base-eth-price', 'base-x402-discovery'],
+  },
+  wallet
+);
+
+const answer = await agent.run('What is the ETH price on Base?');
+console.log(answer);
+```
+
+Connect to [morv.run](https://morv.run) for managed gateway and marketplace (optional):
+
+```typescript
+const morv = new MorvClient({
+  apiBaseUrl: 'https://api.morv.run',
+  apiKey: process.env.MORV_API_KEY,
+});
+```
+
+---
+
+## System overview
+
+Morv combines five layers for production agent workflows:
+
+| Layer | Module | Role |
+|-------|--------|------|
+| **Security** | `AgentGuard` | Spending limits, allow/deny lists, anomaly checks, auto-pause |
+| **Execution** | `McpRegistry` / `McpGateway` | Install and run MCP tools from registry or gateway |
+| **Payment** | `X402Client` | HTTP 402 pay-per-request on Base |
+| **Models** | `createModelRunner` | BYOM — OpenAI, Anthropic, Gemini, Groq, Ollama, and more |
+| **Chain** | `BaseWallet` | USDC settlement on Base mainnet |
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Agent (your app / CLI)                                      │
+├─────────────────────────────────────────────────────────────┤
+│  AgentGuard  →  policy check before every payment           │
+├─────────────────────────────────────────────────────────────┤
+│  MCP Gateway  →  tool install · quote · execute             │
+├─────────────────────────────────────────────────────────────┤
+│  x402 Client  →  discover · pay · retry with proof          │
+├─────────────────────────────────────────────────────────────┤
+│  Base (8453)  →  USDC · mainnet settlement                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Full details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+
+---
 
 ## Features
 
 | Module | Description |
 |--------|-------------|
-| **AgentGuard** | Spending limits, whitelist/blacklist, anomaly checks, auto-pause |
-| **MCP** | Install and execute tools from a registry or hosted marketplace |
-| **x402** | Pay-per-request HTTP (Bankr rail by default, Morv native fallback) |
-| **BYOM** | OpenAI, Anthropic, Gemini, Ollama |
-| **Credits** | Optional integration with Morv hosted API — users spend credits, platform wallet settles onchain |
+| **AgentGuard** | Per-tx, daily/weekly/monthly limits, category caps, velocity checks |
+| **MCP** | Base ecosystem tools — oracles, x402 discovery, AgentKit |
+| **x402** | Pay-per-request HTTP with policy enforcement |
+| **BYOM** | Bring your own model — no vendor lock-in |
+| **CLI** | `morv init`, `agent create`, `run`, `guard status` |
 
-## Install
-
-```bash
-npm install @morv-labs/morv
-```
-
-From source:
-
-```bash
-git clone https://github.com/Morv-Labs/morv.git
-cd morv && npm install && npm run build
-```
-
-## Quick start
-
-### With Morv hosted API (recommended)
-
-Users spend **Morv credits**. Configure your platform wallet (`BANKR_API_KEY` or `MORV_WALLET_PRIVATE_KEY`) on the machine running the agent.
-
-```typescript
-import { MorvClient } from '@morv-labs/morv';
-
-const morv = new MorvClient({
-  apiBaseUrl: process.env.MORV_API_BASE_URL ?? 'http://localhost:3001',
-  apiKey: process.env.MORV_API_KEY,
-});
-
-await morv.register('you@example.com'); // once — returns API key + starter credits
-
-const agent = await morv.createAgent({
-  id: 'my-agent',
-  model: { provider: 'openai', model: 'gpt-4o-mini', apiKey: process.env.OPENAI_API_KEY! },
-  policy: { dailyLimitUsd: 50, perTxLimitUsd: 10, autoPause: true },
-  tools: ['base-eth-price', 'base-x402-discovery'],
-});
-
-const answer = await agent.run('What is the ETH price on Base?');
-```
-
-### Standalone (no hosted API)
-
-Use a local wallet adapter directly:
-
-```typescript
-import { MorvClient, createPlatformWalletFromEnv } from 'morv';
-
-const wallet = createPlatformWalletFromEnv();
-const morv = new MorvClient();
-
-const agent = await morv.createAgent({
-  id: 'my-agent',
-  model: { provider: 'openai', model: 'gpt-4o-mini', apiKey: process.env.OPENAI_API_KEY! },
-  policy: { dailyLimitUsd: 50, perTxLimitUsd: 10, autoPause: true },
-  tools: ['eth-price'],
-}, wallet);
-
-await agent.pay({ to: '0x...', amount: 1, currency: 'USDC', category: 'payment' });
-```
+---
 
 ## CLI
 
 ```bash
 npx morv init
-npx morv register              # API key + credits (requires hosted backend)
 npx morv agent create demo --tools base-eth-price --daily 50 --per-tx 10
-npx morv run "Get ETH price"
+npx morv add base-x402-discovery
+npx morv run "Find x402 APIs on Base"
 npx morv guard status demo
+npx morv tools list
 ```
 
-## Environment variables
+---
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENAI_API_KEY` | For OpenAI models | BYOM provider key |
-| `MORV_API_BASE_URL` | Optional | Hosted Morv backend URL |
-| `MORV_API_KEY` | Optional | Account API key from `morv register` |
-| `BANKR_API_KEY` | Platform wallet | Bankr Wallet API (recommended) |
-| `BANKR_AGENT_ADDRESS` | Platform wallet | Bankr agent address on Base |
-| `MORV_WALLET_PRIVATE_KEY` | Alternative wallet | Direct Base USDC via viem |
-| `X402_PROVIDER` | Optional | `bankr` (default) or `morv` |
-| `BASE_RPC_URL` | Optional | Default: `https://mainnet.base.org` |
+## Environment
 
-USDC on Base mainnet: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | Model provider key (BYOM) |
+| `MORV_WALLET_PRIVATE_KEY` | Agent wallet on Base (USDC) |
+| `BANKR_API_KEY` | Alternative wallet via Bankr on Base |
+| `BANKR_AGENT_ADDRESS` | Bankr agent address |
+| `BASE_RPC_URL` | Default: `https://mainnet.base.org` |
+| `X402_PROVIDER` | `bankr` (default) or `morv` |
+| `MORV_API_BASE_URL` | Optional — gateway at [morv.run](https://morv.run) |
+| `MORV_API_KEY` | Optional — account key from `morv register` |
 
-## AgentGuard
+USDC on Base: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
 
-AgentGuard enforces policy on every payment path — MCP tool calls, x402 requests, and manual transfers.
+Copy [`.env.example`](.env.example) to get started.
 
-```typescript
-import { AgentGuard, BaseWallet, PolicyViolationError } from 'morv';
-
-const guard = new AgentGuard({
-  agentId: 'trading-bot',
-  wallet: new BaseWallet({ privateKey: process.env.MORV_WALLET_PRIVATE_KEY! }),
-  policy: { dailyLimitUsd: 100, perTxLimitUsd: 25, autoPause: true },
-});
-
-try {
-  await guard.pay({ to: '0xService...', amount: 5, currency: 'USDC' });
-} catch (e) {
-  if (e instanceof PolicyViolationError) console.error('Blocked:', e.reason);
-}
-```
-
-Policy checks include per-transaction limits, daily/weekly/monthly budgets, category caps, whitelist/blacklist, and velocity/amount anomaly detection.
+---
 
 ## Repository layout
 
 ```
 morv/
-├── packages/sdk/    npm package "morv"
-├── packages/cli/    CLI binary "morv"
+├── packages/sdk/     @morv-labs/morv
+├── packages/cli/     morv CLI
 ├── examples/
-└── docs/
+├── docs/
+└── icon.jpg
 ```
+
+---
+
+## Examples
+
+| File | Description |
+|------|-------------|
+| [`examples/basic-usage.ts`](examples/basic-usage.ts) | Minimal agent + AgentGuard |
+| [`examples/base-mainnet.ts`](examples/base-mainnet.ts) | Base USDC payments |
+| [`examples/full-platform.ts`](examples/full-platform.ts) | MCP + x402 + gateway |
+
+---
 
 ## Documentation
 
 - [Architecture](./docs/ARCHITECTURE.md)
-- [Deploy](./docs/DEPLOY.md)
+- [Deploy & publish](./docs/DEPLOY.md)
 
-## What is not included
-
-This repository does not contain the Morv hosted backend (gateway, billing engine, admin dashboard). See [Morv-Labs/morv-server](https://github.com/Morv-Labs/morv-server) for the private server implementation.
+---
 
 ## License
 

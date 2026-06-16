@@ -2,66 +2,97 @@
 
 ## Overview
 
-Morv is a single SDK (`morv`) and CLI (`npx morv`) that combines five layers for autonomous agents on Base:
+Morv is a TypeScript SDK and CLI for autonomous agents on Base. Five modules compose a single stack:
 
 | Layer | Module | Role |
 |-------|--------|------|
 | Security | `AgentGuard` | Enforces spending policy before any payment |
 | Execution | `McpRegistry` / `McpGateway` | Installs and runs MCP tools |
-| Payment | `X402Client` / `BankrX402Client` | Handles HTTP 402 pay-per-request flows |
+| Payment | `X402Client` | Handles HTTP 402 pay-per-request flows |
 | AI | `createModelRunner` | BYOM — bring your own model provider |
-| Billing | `CreditClient` / `BillingClient` | Optional integration with hosted Morv API |
+| Chain | `BaseWallet` / Bankr adapter | USDC settlement on Base mainnet |
 
-## Payment flow (hosted mode)
+## Agent execution flow
 
 ```
-User agent (SDK/CLI)
-  → CreditWallet deducts Morv credits
-  → AgentGuard validates policy
-  → Platform wallet (Bankr / Base) settles onchain
-  → MCP tool or x402 API responds
+1. User prompt → model runner (BYOM)
+2. Model selects MCP tool or x402 endpoint
+3. AgentGuard validates policy (limits, lists, anomalies)
+4. Wallet settles USDC on Base (or x402 payment header)
+5. Tool/API response → model → final answer
 ```
 
-Users interact with credits only. The platform operator configures the onchain wallet in environment variables.
+## AgentGuard
 
-## AgentGuard integration
-
-AgentGuard is a security module inside Morv, not a standalone product. Every payment route passes through it:
+AgentGuard is embedded in every payment path — not a separate product:
 
 ```
 MCP call  → quote price → AgentGuard.pay() → execute tool
-x402 API  → 402 response → AgentGuard.pay() → retry with payment header
+x402 API  → 402 response → AgentGuard.pay() → retry with payment proof
+transfer  → AgentGuard.pay() → onchain USDC
 ```
 
-## Open source vs hosted
+Policy dimensions:
 
-| Open source (this repo) | Hosted (private server) |
-|-------------------------|-------------------------|
-| SDK (`morv`) | MCP gateway routing |
-| CLI (`morv`) | Credits and billing API |
-| AgentGuard engine | Marketplace backend |
-| x402 clients | Admin dashboard |
-| Wallet adapters | Onchain payment verification |
+- Per-transaction and rolling budgets (daily / weekly / monthly)
+- Category caps (e.g. `mcp`, `x402`, `payment`)
+- Whitelist / blacklist addresses
+- Velocity and amount anomaly detection
+- Auto-pause on violation
 
-Connect to hosted services via `MORV_API_BASE_URL` and `MORV_API_KEY`.
+## MCP integration
+
+Tools are referenced by ID (e.g. `base-eth-price`, `base-x402-discovery`).
+
+- **Local registry** — static catalog in SDK for offline development
+- **Gateway mode** — set `MORV_API_BASE_URL` to route through [morv.run](https://morv.run) for live marketplace and routing
+
+## x402
+
+Set `X402_PROVIDER=bankr` (default) or `morv`:
+
+| Provider | Behavior |
+|----------|----------|
+| `bankr` | Bankr x402 ecosystem on Base via `x402-fetch` |
+| `morv` | Native HTTP 402 header flow with AgentGuard |
+
+Both paths enforce AgentGuard before settlement.
+
+## Wallet adapters
+
+| Adapter | Env |
+|---------|-----|
+| `BaseWallet` | `MORV_WALLET_PRIVATE_KEY` |
+| Bankr | `BANKR_API_KEY`, `BANKR_AGENT_ADDRESS` |
+
+Use `createPlatformWalletFromEnv()` to pick the configured adapter automatically.
 
 ## Typical workflow
 
 ```
-1. morv init
-2. morv register                 → API key + starter credits
-3. morv agent create demo        → agent with AgentGuard policy
-4. morv add base-eth-price       → install MCP tool
-5. morv run "ETH price?"         → BYOM + MCP + AgentGuard
-6. morv guard status             → check budget
-7. morv billing usage            → usage summary (hosted API)
+morv init
+morv agent create demo --tools base-eth-price --daily 50 --per-tx 10
+morv run "ETH price on Base?"
+morv guard status demo
 ```
 
-## x402 providers
+Optional gateway connection:
 
-Set `X402_PROVIDER=bankr` (default) or `morv`:
+```
+morv register                    → API key
+export MORV_API_BASE_URL=https://api.morv.run
+morv tools list                → live marketplace
+```
 
-- **bankr** — uses `x402-fetch` on Base; compatible with the Bankr x402 ecosystem
-- **morv** — native HTTP 402 header flow with AgentGuard
+## Package map
 
-Both paths enforce AgentGuard policy before settlement.
+```
+packages/sdk/src/
+├── core/          client, guard, gateway, mcp, policy, billing, credits
+├── integrations/  x402, wallets, models, base-mcp-catalog
+├── chain/         Base constants
+└── checks/        pre-flight validators
+
+packages/cli/src/
+└── index.ts       morv command surface
+```

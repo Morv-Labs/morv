@@ -2,7 +2,7 @@
   "name": "morv",
   "version": "0.1.0",
   "private": true,
-  "description": "Morv — Open-source AI agent SDK (AgentGuard + MCP + x402 + Base mainnet)",
+  "description": "Morv — AI agent infrastructure on Base (AgentGuard + MCP + x402)",
   "workspaces": [
     "packages/*"
   ],
