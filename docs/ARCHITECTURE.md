@@ -42,7 +42,7 @@ Policy dimensions:
 
 ## MCP integration
 
-Tools are referenced by ID (e.g. `base-eth-price`, `base-x402-discovery`).
+Tools are referenced by ID (e.g. `base-x402-discovery`, `base-web-scraper`).
 
 - **Local registry** — static catalog in SDK for offline development
 - **Gateway mode** — set `MORV_API_BASE_URL` to route through [morv.run](https://morv.run) for live marketplace and routing
@@ -71,9 +71,9 @@ Use `createPlatformWalletFromEnv()` to pick the configured adapter automatically
 
 ```
 morv init
-morv agent create demo --tools base-eth-price --daily 50 --per-tx 10
-morv run "ETH price on Base?"
-morv guard status demo
+morv agent create dca-bot --tools base-x402-discovery --daily 200 --per-tx 50
+morv run "Scan Base pools and DCA if dip detected"
+morv guard status dca-bot
 ```
 
 Optional gateway connection:

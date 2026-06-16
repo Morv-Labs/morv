@@ -18,10 +18,10 @@ async function main() {
   // createAgent = BYOM + MCP tools + AgentGuard (all in one)
   const agent = await morv.createAgent(
     {
-      id: 'demo-agent',
+      id: 'dca-bot',
       model: { provider: 'ollama', model: 'llama3', baseUrl: 'http://localhost:11434' },
-      policy: { dailyLimitUsd: 50, perTxLimitUsd: 10, autoPause: true },
-      tools: ['eth-price'], // MCP — requires backend running
+      policy: { dailyLimitUsd: 200, perTxLimitUsd: 50, autoPause: true },
+      tools: ['base-x402-discovery'],
     },
     wallet
   );
@@ -36,10 +36,10 @@ async function main() {
   });
   console.log(`  ✓ Payment approved: ${pay.txHash}`);
 
-  console.log('\n── Layer 2: MCP Tool (via gateway) ──');
+  console.log('\n── Layer 2: MCP + x402 discovery ──');
   try {
-    const toolResult = await agent.useTool('eth-price', {});
-    console.log(`  ✓ ETH price:`, toolResult.output);
+    const toolResult = await agent.useTool('base-x402-discovery', { query: 'defi' });
+    console.log(`  ✓ x402 services found:`, toolResult.output);
   } catch (err) {
     console.log(`  ⚠ MCP needs backend: ${err}`);
   }

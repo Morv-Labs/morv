@@ -81,11 +81,11 @@ program
 
     const envVar = PROVIDER_ENV_KEYS[answers.modelProvider as ModelConfig['provider']] ?? 'OPENAI_API_KEY';
     const agentExample = `/**
- * Morv Agent — credits + Base/Bankr onchain settlement
- * Run: morv register && morv run "What is the ETH price?"
+ * Morv Agent — DCA bot example on Base
+ * Run: morv register && morv run "Scan Base and DCA if dip detected"
  *
  * BYOM: set ${envVar} in .env
- * Owner: BANKR_API_KEY + BANKR_AGENT_ADDRESS
+ * Wallet: BANKR_API_KEY + BANKR_AGENT_ADDRESS
  */
 import { MorvClient } from '@morv-labs/morv';
 
@@ -95,13 +95,13 @@ const morv = new MorvClient({
 });
 
 const agent = await morv.createAgent({
-  id: 'my-agent',
+  id: 'dca-bot',
   model: { provider: '${answers.modelProvider}', model: '${answers.modelName}' },
-  policy: { dailyLimitUsd: 50, perTxLimitUsd: 10, autoPause: true },
-  tools: ['base-eth-price', 'base-x402-discovery'],
+  policy: { dailyLimitUsd: 200, perTxLimitUsd: 50, autoPause: true },
+  tools: ['base-x402-discovery', 'base-web-scraper'],
 });
 
-const answer = await agent.run(process.argv[2] ?? 'Hello');
+const answer = await agent.run(process.argv[2] ?? 'Scan Base pools and DCA if ETH dips 3%');
 console.log(answer);
 `;
     fs.writeFileSync(path.join(process.cwd(), 'agent.morv.ts'), agentExample);
@@ -109,7 +109,7 @@ console.log(answer);
     console.log(chalk.green('\n✓ Morv initialized'));
     console.log(chalk.dim('  morv register          → get API key'));
     console.log(chalk.dim('  morv agent create demo → create agent'));
-    console.log(chalk.dim('  morv add eth-price     → install MCP tool'));
+    console.log(chalk.dim('  morv add base-x402-discovery → install MCP tool'));
     console.log(chalk.dim('  morv run "prompt"      → run agent'));
     console.log(chalk.dim('  morv guard status      → AgentGuard budget'));
   });
@@ -334,7 +334,7 @@ agentCmd
     if (!config.defaultAgent) config.defaultAgent = id;
     saveConfig(config);
     console.log(chalk.green(`✓ Agent '${id}' created`));
-    console.log(chalk.dim(`  morv add eth-price && morv run -a ${id} "get ETH price"`));
+    console.log(chalk.dim(`  morv run -a ${id} "Scan Base and DCA if dip detected"`));
   });
 
 agentCmd.command('list').action(() => {

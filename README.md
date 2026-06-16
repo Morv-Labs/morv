@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 <div align="center">
-  <img src="icon.jpg" alt="Morv Labs" width="160" />
+  <img src="logo.jpg" alt="Morv Labs" width="200" />
   <br /><br />
   <a href="https://morv.run"><strong>morv.run</strong></a>
   &nbsp;·&nbsp;
@@ -18,13 +18,13 @@
 
 **Infrastructure for autonomous AI agents on Base — MCP tools, x402 payments, and spending policy in one SDK.**
 
-Morv is the operating layer agents use to discover tools, pay for APIs, and stay within guardrails. Built for builders shipping onchain agents on [Base](https://base.org).
+Morv is the operating layer agents use to discover tools, pay for APIs, and operate onchain — with guardrails built in.
 
 ```bash
 npm install @morv-labs/morv
 npx morv init
-npx morv agent create demo --tools base-eth-price --daily 50 --per-tx 10
-npx morv run "What is the ETH price on Base?"
+npx morv agent create dca-bot --tools base-x402-discovery --daily 200 --per-tx 50
+npx morv run "Scan Base pools and DCA if ETH dips 3%"
 ```
 
 ---
@@ -39,19 +39,19 @@ const morv = new MorvClient();
 
 const agent = await morv.createAgent(
   {
-    id: 'my-agent',
+    id: 'dca-bot',
     model: { provider: 'openai', model: 'gpt-4o-mini', apiKey: process.env.OPENAI_API_KEY! },
-    policy: { dailyLimitUsd: 50, perTxLimitUsd: 10, autoPause: true },
-    tools: ['base-eth-price', 'base-x402-discovery'],
+    policy: { dailyLimitUsd: 200, perTxLimitUsd: 50, autoPause: true },
+    tools: ['base-x402-discovery', 'base-web-scraper'],
   },
   wallet
 );
 
-const answer = await agent.run('What is the ETH price on Base?');
+const answer = await agent.run('Scan Base yield pools and DCA $50 if dip detected');
 console.log(answer);
 ```
 
-Connect to [morv.run](https://morv.run) for managed gateway and marketplace (optional):
+Optional gateway at [morv.run](https://morv.run):
 
 ```typescript
 const morv = new MorvClient({
@@ -64,14 +64,12 @@ const morv = new MorvClient({
 
 ## System overview
 
-Morv combines five layers for production agent workflows:
-
 | Layer | Module | Role |
 |-------|--------|------|
 | **Security** | `AgentGuard` | Spending limits, allow/deny lists, anomaly checks, auto-pause |
 | **Execution** | `McpRegistry` / `McpGateway` | Install and run MCP tools from registry or gateway |
 | **Payment** | `X402Client` | HTTP 402 pay-per-request on Base |
-| **Models** | `createModelRunner` | BYOM — OpenAI, Anthropic, Gemini, Groq, Ollama, and more |
+| **Models** | `createModelRunner` | BYOM — OpenAI, Anthropic, Gemini, Groq, Ollama |
 | **Chain** | `BaseWallet` | USDC settlement on Base mainnet |
 
 ```
@@ -92,15 +90,14 @@ Full details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 
-## Features
+## What people build
 
-| Module | Description |
-|--------|-------------|
-| **AgentGuard** | Per-tx, daily/weekly/monthly limits, category caps, velocity checks |
-| **MCP** | Base ecosystem tools — oracles, x402 discovery, AgentKit |
-| **x402** | Pay-per-request HTTP with policy enforcement |
-| **BYOM** | Bring your own model — no vendor lock-in |
-| **CLI** | `morv init`, `agent create`, `run`, `guard status` |
+| Agent | Command |
+|-------|---------|
+| **DCA trading bot** | `morv run "DCA $50 ETH if 3% dip"` |
+| **x402 data aggregator** | `morv run "Aggregate DeFi TVL from all x402 sources"` |
+| **Research agent** | `morv run "Summarize Base ecosystem news this week"` |
+| **Multi-agent swarm** | `morv swarm create --agents researcher,trader,guard` |
 
 ---
 
@@ -108,11 +105,10 @@ Full details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ```bash
 npx morv init
-npx morv agent create demo --tools base-eth-price --daily 50 --per-tx 10
-npx morv add base-x402-discovery
-npx morv run "Find x402 APIs on Base"
-npx morv guard status demo
-npx morv tools list
+npx morv agent create dca-bot --tools base-x402-discovery --daily 200 --per-tx 50
+npx morv add base-web-scraper
+npx morv run "Scan Base and execute DCA if conditions met"
+npx morv guard status dca-bot
 ```
 
 ---
@@ -128,11 +124,9 @@ npx morv tools list
 | `BASE_RPC_URL` | Default: `https://mainnet.base.org` |
 | `X402_PROVIDER` | `bankr` (default) or `morv` |
 | `MORV_API_BASE_URL` | Optional — gateway at [morv.run](https://morv.run) |
-| `MORV_API_KEY` | Optional — account key from `morv register` |
+| `MORV_API_KEY` | Optional — from `morv register` |
 
 USDC on Base: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
-
-Copy [`.env.example`](.env.example) to get started.
 
 ---
 
@@ -144,7 +138,7 @@ morv/
 ├── packages/cli/     morv CLI
 ├── examples/
 ├── docs/
-└── icon.jpg
+└── logo.jpg
 ```
 
 ---
