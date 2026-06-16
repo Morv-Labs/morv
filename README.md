@@ -2,10 +2,13 @@
 
 ![SDK v0.1](https://img.shields.io/badge/sdk-v0.1-black)
 ![Network](https://img.shields.io/badge/network-Base%20(8453)-0052FF)
+![npm](https://img.shields.io/npm/v/@morv-labs/morv?label=npm)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 <div align="center">
-  <img src="logo.jpg" alt="Morv Labs" width="200" />
+  <img src="logo.jpg" alt="Morv Labs" width="220" />
+  <br /><br />
+  <img src="morv-hero.gif" alt="Morv agent terminal demo" width="720" />
   <br /><br />
   <a href="https://morv.run"><strong>morv.run</strong></a>
   &nbsp;·&nbsp;
@@ -16,20 +19,153 @@
 
 <br />
 
-**Infrastructure for autonomous AI agents on Base — MCP tools, x402 payments, and spending policy in one SDK.**
+**The operating layer for autonomous agents that move money on Base.**
 
-Morv is the operating layer agents use to discover tools, pay for APIs, and operate onchain — with guardrails built in.
+Morv is not another chat wrapper. It is open SDK + CLI infrastructure that wires **BYOM models**, **MCP tools**, **x402 pay-per-request**, and **AgentGuard spending policy** into one agent loop — so agents can pay, trade, and call APIs autonomously without draining wallets.
 
 ```bash
 npm install @morv-labs/morv
 npx morv init
 npx morv agent create dca-bot --tools base-x402-discovery --daily 200 --per-tx 50
-npx morv run "Scan Base pools and DCA if ETH dips 3%"
+npx morv run "Scan Base pools and DCA $50 if ETH dips 3%"
 ```
+
+**AI agents:** [QUICKSTART.md](QUICKSTART.md) (5 min) · [AGENTS.md](AGENTS.md) (full context) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+**Primary users:** builders shipping onchain agents. Humans configure policy; agents execute within guardrails.
+
+**Thesis:** agents need wallets + tool access + spend limits — not governance theater.
+
+**Security:** [SECURITY.md](SECURITY.md)
 
 ---
 
-## Quick start
+## Live on Base
+
+| Resource | Value |
+|----------|-------|
+| **Chain** | Base mainnet (8453) |
+| **USDC** | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (6 decimals) |
+| **SDK** | [`@morv-labs/morv`](https://www.npmjs.com/package/@morv-labs/morv) on npm |
+| **App** | [morv.run](https://morv.run) — console + gateway |
+| **Status** | SDK v0.1 · MIT · active development |
+
+---
+
+## Using this README as agent context
+
+When working in Morv:
+
+1. Read [AGENTS.md](AGENTS.md) for env vars, tool IDs, and onboarding order.
+2. Read **System overview** and **End-to-end flows** for behavior.
+3. Use **Onchain reference** for USDC on Base.
+4. Use **Documentation map** to drill into specs — prefer linked paths over guessing.
+5. Do not commit secrets (`.env`, keys).
+
+---
+
+## System overview
+
+Morv stacks five layers for production agent workflows:
+
+| Layer | Module | Role |
+|-------|--------|------|
+| **Security** | `AgentGuard` | Spending limits, allow/deny lists, anomaly checks, auto-pause |
+| **Execution** | `McpRegistry` / `McpGateway` | Install and run MCP tools |
+| **Payment** | `X402Client` | HTTP 402 pay-per-request on Base |
+| **Models** | `createModelRunner` | BYOM — OpenAI, Anthropic, Gemini, Groq, Ollama |
+| **Chain** | `BaseWallet` / Bankr | USDC settlement on Base |
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Layer 4 — Agent runtime (BYOM → tool selection → response)       │
+├─────────────────────────────────────────────────────────────────┤
+│ Layer 3 — AgentGuard (policy on every payment path)              │
+├─────────────────────────────────────────────────────────────────┤
+│ Layer 2 — MCP Gateway (install · quote · execute tools)          │
+├─────────────────────────────────────────────────────────────────┤
+│ Layer 1 — x402 Client (402 → pay → retry with proof)             │
+├─────────────────────────────────────────────────────────────────┤
+│ Layer 0 — Base (8453) USDC settlement                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Full architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
+
+## What people build
+
+| Pattern | Example prompt |
+|---------|----------------|
+| **DCA trading bot** | `Scan Base and DCA $50 if ETH dips 3%` |
+| **x402 data aggregator** | `Aggregate DeFi TVL from six x402 APIs` |
+| **Research agent** | `Summarize Base agent ecosystem this week` |
+| **Multi-agent swarm** | `Researcher finds yield, trader allocates $80` |
+| **Token launch flow** | `Deploy on Base and route fees to treasury` |
+
+---
+
+## End-to-end flows
+
+### A. Agent bootstrap
+
+| Step | Command | Result |
+|------|---------|--------|
+| Install | `npm install @morv-labs/morv` | SDK + types |
+| Init | `npx morv init` | Local config + `agent.morv.ts` |
+| Create | `npx morv agent create dca-bot --daily 200 --per-tx 50` | Agent + AgentGuard policy |
+| Tools | `npx morv add base-x402-discovery` | MCP tool registered |
+| Run | `npx morv run "Scan Base pools and DCA"` | BYOM + tools + guard |
+
+### B. x402 pay-per-request
+
+| Step | Behavior |
+|------|----------|
+| Request | Agent calls paid API → receives HTTP 402 |
+| Guard | AgentGuard validates amount against policy |
+| Pay | Wallet sends USDC on Base (or Bankr rail) |
+| Retry | Request retried with payment proof header |
+
+Set `X402_PROVIDER=bankr` (default) or `morv`.
+
+### C. MCP tool execution
+
+| Step | Behavior |
+|------|----------|
+| Quote | Gateway returns tool price |
+| Guard | Policy check before deduct |
+| Execute | Tool runs, result returned to model |
+| Ledger | Usage recorded for audit |
+
+### D. Policy enforcement
+
+| Check | Example |
+|-------|---------|
+| Per-tx limit | Block $500 payment when cap is $50 |
+| Daily budget | Pause agent at $200/day |
+| Anomaly | Velocity spike → auto-pause |
+| Allow/deny | Whitelist treasury addresses |
+
+---
+
+## TypeScript SDK surface
+
+| Path | Purpose |
+|------|---------|
+| `MorvClient` | Agent lifecycle, register, run |
+| `AgentGuard` | Standalone policy engine on any payment path |
+| `McpRegistry` | Local tool catalog |
+| `McpGateway` | Remote marketplace routing |
+| `X402Client` | HTTP 402 payment flow |
+| `createPlatformWalletFromEnv` | Bankr or Base wallet from env |
+| `createModelRunner` | BYOM model adapter |
+
+CLI commands: `init` · `register` · `agent create` · `add` · `run` · `guard status` · `tools list`
+
+---
+
+## Quick start (TypeScript)
 
 ```typescript
 import { MorvClient, createPlatformWalletFromEnv } from '@morv-labs/morv';
@@ -62,71 +198,44 @@ const morv = new MorvClient({
 
 ---
 
-## System overview
+## Onchain reference
 
-| Layer | Module | Role |
-|-------|--------|------|
-| **Security** | `AgentGuard` | Spending limits, allow/deny lists, anomaly checks, auto-pause |
-| **Execution** | `McpRegistry` / `McpGateway` | Install and run MCP tools from registry or gateway |
-| **Payment** | `X402Client` | HTTP 402 pay-per-request on Base |
-| **Models** | `createModelRunner` | BYOM — OpenAI, Anthropic, Gemini, Groq, Ollama |
-| **Chain** | `BaseWallet` | USDC settlement on Base mainnet |
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Agent (your app / CLI)                                      │
-├─────────────────────────────────────────────────────────────┤
-│  AgentGuard  →  policy check before every payment           │
-├─────────────────────────────────────────────────────────────┤
-│  MCP Gateway  →  tool install · quote · execute             │
-├─────────────────────────────────────────────────────────────┤
-│  x402 Client  →  discover · pay · retry with proof          │
-├─────────────────────────────────────────────────────────────┤
-│  Base (8453)  →  USDC · mainnet settlement                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-Full details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-
----
-
-## What people build
-
-| Agent | Command |
-|-------|---------|
-| **DCA trading bot** | `morv run "DCA $50 ETH if 3% dip"` |
-| **x402 data aggregator** | `morv run "Aggregate DeFi TVL from all x402 sources"` |
-| **Research agent** | `morv run "Summarize Base ecosystem news this week"` |
-| **Multi-agent swarm** | `morv swarm create --agents researcher,trader,guard` |
-
----
-
-## CLI
-
-```bash
-npx morv init
-npx morv agent create dca-bot --tools base-x402-discovery --daily 200 --per-tx 50
-npx morv add base-web-scraper
-npx morv run "Scan Base and execute DCA if conditions met"
-npx morv guard status dca-bot
-```
+| Constant | Value |
+|----------|-------|
+| Chain ID | 8453 (Base) |
+| USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Decimals | 6 |
+| Default RPC | `https://mainnet.base.org` |
 
 ---
 
 ## Environment
 
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | Model provider key (BYOM) |
-| `MORV_WALLET_PRIVATE_KEY` | Agent wallet on Base (USDC) |
-| `BANKR_API_KEY` | Alternative wallet via Bankr on Base |
+| Variable | Purpose |
+|----------|---------|
+| `OPENAI_API_KEY` | BYOM provider |
+| `GROQ_API_KEY` | Groq (free tier friendly) |
+| `MORV_WALLET_PRIVATE_KEY` | Direct Base USDC wallet |
+| `BANKR_API_KEY` | Bankr wallet on Base |
 | `BANKR_AGENT_ADDRESS` | Bankr agent address |
-| `BASE_RPC_URL` | Default: `https://mainnet.base.org` |
 | `X402_PROVIDER` | `bankr` (default) or `morv` |
-| `MORV_API_BASE_URL` | Optional — gateway at [morv.run](https://morv.run) |
-| `MORV_API_KEY` | Optional — from `morv register` |
+| `MORV_API_BASE_URL` | Optional gateway |
+| `MORV_API_KEY` | Optional account key |
 
-USDC on Base: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+Copy [`.env.example`](.env.example).
+
+---
+
+## Documentation map
+
+| Document | Topic |
+|----------|-------|
+| [QUICKSTART.md](QUICKSTART.md) | 5-minute agent setup |
+| [AGENTS.md](AGENTS.md) | AI agent entry — env, tools, flows |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layer design, modules |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Build, test, npm publish |
+| [SECURITY.md](SECURITY.md) | Reporting, operator checklist |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
 
 ---
 
@@ -134,32 +243,52 @@ USDC on Base: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
 
 ```
 morv/
-├── packages/sdk/     @morv-labs/morv
-├── packages/cli/     morv CLI
+├── README.md              ← you are here
+├── QUICKSTART.md          ← fast onboarding
+├── AGENTS.md              ← AI agent context
+├── SECURITY.md
+├── CHANGELOG.md
+├── index.html             ← GitHub Pages / morv.run
+├── logo.jpg
+├── og.png                 ← social preview (Twitter, GitHub)
+├── morv-hero.gif          ← README hero animation
+├── packages/
+│   ├── sdk/               @morv-labs/morv
+│   └── cli/               morv CLI
 ├── examples/
 ├── docs/
-└── logo.jpg
+└── .github/workflows/     CI build + test
 ```
 
 ---
 
-## Examples
+## Quick start (developers)
 
-| File | Description |
-|------|-------------|
-| [`examples/basic-usage.ts`](examples/basic-usage.ts) | Minimal agent + AgentGuard |
-| [`examples/base-mainnet.ts`](examples/base-mainnet.ts) | Base USDC payments |
-| [`examples/full-platform.ts`](examples/full-platform.ts) | MCP + x402 + gateway |
+```bash
+git clone https://github.com/Morv-Labs/morv.git
+cd morv && npm install && npm run build && npm test
+```
+
+Windows PowerShell:
+
+```powershell
+cd morv; npm install; npm run build; npm test
+```
 
 ---
 
-## Documentation
+## Design principles
 
-- [Architecture](./docs/ARCHITECTURE.md)
-- [Deploy & publish](./docs/DEPLOY.md)
+- **Machine legibility** — agents and builders read code, not slide decks
+- **Adversarial by default** — AgentGuard on every payment path
+- **No vendor lock-in** — BYOM, forkable SDK, MIT license
+- **Base-native** — USDC, x402, MCP ecosystem on chain 8453
+- **Composable** — swap wallet, model, or tool without rewriting agent logic
 
 ---
 
 ## License
 
-MIT — [Morv Labs](https://github.com/Morv-Labs)
+MIT — Morv SDK and CLI are public infrastructure.
+
+[Morv Labs](https://github.com/Morv-Labs) · [morv.run](https://morv.run) · [@morvlabs](https://x.com/morvlabs)

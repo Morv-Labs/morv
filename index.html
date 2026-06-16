@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Morv — Build AI Agents on Base</title>
+  <meta name="description" content="Infrastructure for autonomous AI agents on Base. MCP, x402, AgentGuard."/>
+  <meta property="og:title" content="Morv Labs"/>
+  <meta property="og:description" content="Build agents that move money — safely."/>
+  <meta property="og:image" content="og.png"/>
+  <link rel="icon" href="logo.jpg"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:#080808;color:#e8e8e8;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#f97316;text-decoration:none}
+    a:hover{text-decoration:underline}
+    nav{position:fixed;inset:0 0 auto;z-index:99;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(8,8,8,.92);backdrop-filter:blur(20px);border-bottom:1px solid #1a1a1a}
+    .logo{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-weight:700;color:#fff;text-decoration:none}
+    .logo img{width:28px;height:28px;border-radius:6px}
+    .nav-r{display:flex;gap:10px;align-items:center}
+    .btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    .btn-ghost{border:1px solid #333;color:#b8b8b8}
+    .btn-ghost:hover{color:#fff;border-color:#555;text-decoration:none}
+    .btn-fill{background:#f97316;color:#000}
+    .btn-fill:hover{background:#ea580c;text-decoration:none}
+    .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:100px 24px 60px;position:relative}
+    .orb{position:absolute;top:15%;left:50%;transform:translateX(-50%);width:560px;height:360px;background:radial-gradient(ellipse,rgba(249,115,22,.12),transparent 65%);pointer-events:none}
+    .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:#f97316;text-transform:uppercase;margin-bottom:24px}
+    h1{font-size:clamp(40px,6vw,72px);font-weight:800;line-height:1;letter-spacing:-.03em;max-width:800px}
+    h1 em{font-style:normal;background:linear-gradient(90deg,#f97316,#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .sub{margin-top:20px;font-size:17px;color:#b8b8b8;max-width:520px;line-height:1.65}
+    .cmds{margin-top:36px;padding:16px 20px;background:#0f0f0f;border:1px solid #222;border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:#d0d0d0;text-align:left;max-width:640px;width:100%;line-height:1.8}
+    .cmds .pr{color:#f97316}
+    .cta{margin-top:28px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+    .stats{display:flex;flex-wrap:wrap;gap:32px;justify-content:center;margin-top:80px;padding-top:40px;border-top:1px solid #1a1a1a;width:100%;max-width:800px}
+    .stat{text-align:center}
+    .stat-v{font-size:28px;font-weight:800;color:#fff}
+    .stat-l{font-size:12px;color:#9ca3af;margin-top:4px;font-family:'JetBrains Mono',monospace}
+    section{max-width:960px;margin:0 auto;padding:80px 24px}
+    h2{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-bottom:12px}
+    .sec-sub{color:#b8b8b8;font-size:15px;margin-bottom:40px;line-height:1.6}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+    .card{background:#0c0c0c;border:1px solid #1c1c1c;border-radius:12px;padding:20px}
+    .card h3{font-size:14px;font-weight:700;margin-bottom:8px;color:#fff}
+    .card p{font-size:13px;color:#b8b8b8;line-height:1.55}
+    .tag{display:inline-block;margin-top:10px;padding:3px 8px;border-radius:99px;border:1px solid #222;font-family:'JetBrains Mono',monospace;font-size:10px;color:#9ca3af}
+    footer{border-top:1px solid #141414;padding:32px 24px;text-align:center;font-size:12px;color:#8a8a8a}
+    footer a{color:#b8b8b8;margin:0 12px}
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" class="logo"><img src="logo.jpg" alt="Morv"/> morv</a>
+    <div class="nav-r">
+      <a href="https://github.com/Morv-Labs/morv" class="btn btn-ghost" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://morv.run/login" class="btn btn-fill">Launch App</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="orb"></div>
+    <p class="eyebrow">Open-source · MIT · Base 8453</p>
+    <img src="morv-hero.gif" alt="Morv terminal demo" style="max-width:720px;width:100%;border-radius:12px;border:1px solid #1c1c1c;margin-bottom:28px"/>
+    <h1>Build agents that<br><em>move money.</em></h1>
+    <p class="sub">MCP tools, x402 payments, and AgentGuard spending policy — one SDK for autonomous agents on Base.</p>
+    <div class="cmds">
+      <span class="pr">$</span> npm install @morv-labs/morv<br>
+      <span class="pr">$</span> npx morv agent create dca-bot --tools base-x402-discovery --daily 200 --per-tx 50<br>
+      <span class="pr">$</span> npx morv run "Scan Base pools and DCA if dip detected"
+    </div>
+    <div class="cta">
+      <a href="https://github.com/Morv-Labs/morv" class="btn btn-fill" target="_blank" rel="noopener">View on GitHub</a>
+      <a href="QUICKSTART.md" class="btn btn-ghost">Quickstart</a>
+      <a href="https://morv.run" class="btn btn-ghost">morv.run</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-v">5</div><div class="stat-l">SDK layers</div></div>
+      <div class="stat"><div class="stat-v">8453</div><div class="stat-l">Base mainnet</div></div>
+      <div class="stat"><div class="stat-v">MIT</div><div class="stat-l">License</div></div>
+      <div class="stat"><div class="stat-v">x402</div><div class="stat-l">Pay-per-request</div></div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Agent patterns</h2>
+    <p class="sec-sub">What builders ship with Morv — not toy price checks.</p>
+    <div class="grid">
+      <div class="card"><h3>DCA Trading Bot</h3><p>Autonomous buys on dip with daily caps and per-tx limits via AgentGuard.</p><span class="tag">Bankr · x402</span></div>
+      <div class="card"><h3>x402 Aggregator</h3><p>Pay six APIs per-request, normalize into one feed. Micro-spend policy.</p><span class="tag">multi-source</span></div>
+      <div class="card"><h3>Research Agent</h3><p>MCP scrapers + BYOM synthesis. Weekly intel reports on Base ecosystem.</p><span class="tag">MCP · BYOM</span></div>
+      <div class="card"><h3>Multi-Agent Swarm</h3><p>Researcher, trader, guard — shared vault, per-agent policy enforcement.</p><span class="tag">AgentGuard</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Documentation</h2>
+    <p class="sec-sub">Structured like a protocol repo — agents read AGENTS.md first.</p>
+    <div class="grid">
+      <div class="card"><h3><a href="QUICKSTART.md">QUICKSTART.md</a></h3><p>5-minute setup: init, create agent, run.</p></div>
+      <div class="card"><h3><a href="AGENTS.md">AGENTS.md</a></h3><p>AI agent entry — env vars, tools, flows.</p></div>
+      <div class="card"><h3><a href="docs/ARCHITECTURE.md">ARCHITECTURE</a></h3><p>Layer design and module boundaries.</p></div>
+      <div class="card"><h3><a href="https://www.npmjs.com/package/@morv-labs/morv">npm</a></h3><p>@morv-labs/morv — install and publish.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <a href="https://github.com/Morv-Labs/morv">GitHub</a>
+    <a href="https://morv.run">morv.run</a>
+    <a href="https://x.com/morvlabs">@morvlabs</a>
+    <p style="margin-top:16px">© 2026 Morv Labs · MIT</p>
+  </footer>
+</body>
+</html>
