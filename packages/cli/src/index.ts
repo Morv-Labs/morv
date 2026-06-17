@@ -35,12 +35,49 @@ program
   .description('Morv Labs — AI Agent Infrastructure (MCP + x402 + BYOM + AgentGuard)')
   .version('0.1.0');
 
+const RETRO = {
+  accent: chalk.hex('#f59e0b'),
+  soft: chalk.hex('#d4b178'),
+  dim: chalk.hex('#8a6a2f'),
+  ok: chalk.hex('#84cc16'),
+  warn: chalk.hex('#f59e0b'),
+  err: chalk.hex('#ef4444'),
+};
+
+function renderBanner(title = 'MORV.OS') {
+  const line = RETRO.dim('='.repeat(62));
+  console.log('\n' + line);
+  console.log(RETRO.accent(` ${title}  //  BASE AGENT TERMINAL`));
+  console.log(RETRO.soft(' wallet + mcp + x402 + agentguard'));
+  console.log(line);
+}
+
+function info(label: string, value: string) {
+  console.log(`${RETRO.dim('>')} ${RETRO.soft(label)} ${value}`);
+}
+
+function ok(message: string) {
+  console.log(`${RETRO.ok('[ok]')} ${message}`);
+}
+
+function warn(message: string) {
+  console.log(`${RETRO.warn('[warn]')} ${message}`);
+}
+
+function fail(message: string): never {
+  console.error(`${RETRO.err('[err]')} ${message}`);
+  process.exit(1);
+}
+
+const spinner = (label: string) => ora({ text: RETRO.soft(label), spinner: 'dots' }).start();
+
 // ── INIT ────────────────────────────────────────────────────────────────────
 
 program
   .command('init')
   .description('Initialize Morv project')
   .action(async () => {
+    renderBanner('MORV INIT');
     const answers = await inquirer.prompt([
       { type: 'input', name: 'apiBaseUrl', message: 'Morv API URL:', default: 'http://localhost:3001' },
       {
@@ -106,12 +143,12 @@ console.log(answer);
 `;
     fs.writeFileSync(path.join(process.cwd(), 'agent.morv.ts'), agentExample);
 
-    console.log(chalk.green('\n✓ Morv initialized'));
-    console.log(chalk.dim('  morv register          → get API key'));
-    console.log(chalk.dim('  morv agent create demo → create agent'));
-    console.log(chalk.dim('  morv add base-x402-discovery → install MCP tool'));
-    console.log(chalk.dim('  morv run "prompt"      → run agent'));
-    console.log(chalk.dim('  morv guard status      → AgentGuard budget'));
+    ok('Morv initialized');
+    info('next:', 'morv register');
+    info('next:', 'morv agent create demo');
+    info('next:', 'morv add base-x402-discovery');
+    info('next:', 'morv run "prompt"');
+    info('next:', 'morv guard status');
   });
 
 // ── REGISTER ────────────────────────────────────────────────────────────────
@@ -121,22 +158,24 @@ program
   .description('Register on Morv control plane (get API key)')
   .option('-e, --email <email>', 'Email')
   .action(async (opts: { email?: string }) => {
+    renderBanner('MORV REGISTER');
     const config = loadConfig();
     const morv = new MorvClient({ apiBaseUrl: config.apiBaseUrl ?? 'http://localhost:3001' });
-    const spinner = ora('Registering...').start();
+    const spin = spinner('registering account...');
     try {
       const { accountId, apiKey, creditsUsd } = await morv.register(opts.email);
       config.apiKey = apiKey;
       saveConfig(config);
-      spinner.succeed('Registered');
-      console.log(chalk.dim(`  Account: ${accountId}`));
-      console.log(chalk.yellow(`  API Key: ${apiKey}`));
+      spin.succeed(RETRO.ok('registered'));
+      info('account:', accountId);
+      info('apiKey :', RETRO.accent(apiKey));
       if (creditsUsd != null) {
-        console.log(chalk.green(`  Morv credits: $${creditsUsd.toFixed(2)} USD`));
+        info('credits:', RETRO.ok(`$${creditsUsd.toFixed(2)} USD`));
       }
-      console.log(chalk.dim('  Users spend credits · your Bankr wallet pays onchain'));
+      info('billing:', 'users spend credits; Bankr pays onchain');
     } catch (err) {
-      spinner.fail(String(err));
+      spin.fail(RETRO.err('register failed'));
+      fail(String(err));
     }
   });
 
@@ -146,14 +185,14 @@ program
   .command('login')
   .option('-k, --key <key>', 'API key')
   .action((opts: { key?: string }) => {
+    renderBanner('MORV LOGIN');
     const config = loadConfig();
     config.apiKey = opts.key ?? process.env.MORV_API_KEY;
     if (!config.apiKey) {
-      console.error(chalk.red('Provide --key or MORV_API_KEY'));
-      process.exit(1);
+      fail('Provide --key or MORV_API_KEY');
     }
     saveConfig(config);
-    console.log(chalk.green('✓ API key saved'));
+    ok('API key saved');
   });
 
 // ── ADD (top-level MCP install) ─────────────────────────────────────────────
@@ -162,29 +201,32 @@ program
   .command('add <toolId>')
   .description('Install MCP tool from marketplace')
   .action(async (toolId: string) => {
+    renderBanner('MORV TOOL INSTALL');
     const config = loadConfig();
     config.installedTools = config.installedTools ?? [];
     if (config.installedTools.includes(toolId)) {
-      console.log(chalk.yellow(`Tool '${toolId}' already installed`));
+      warn(`Tool '${toolId}' already installed`);
       return;
     }
-    const spinner = ora(`Installing ${toolId}...`).start();
+    const spin = spinner(`installing ${toolId}...`);
     try {
       const morv = new MorvClient({
         apiKey: config.apiKey,
         apiBaseUrl: config.apiBaseUrl ?? 'http://localhost:3001',
       });
       const result = await morv.searchMarketplace(toolId);
-      const tool = result.tools.find((t) => t.id === toolId);
+      const tool = result.tools.find((t: { id: string }) => t.id === toolId);
       if (!tool) {
-        spinner.fail(`Tool '${toolId}' not found`);
+        spin.fail(RETRO.err(`tool '${toolId}' not found`));
         return;
       }
       config.installedTools.push(toolId);
       saveConfig(config);
-      spinner.succeed(`Installed ${tool.name} (${tool.pricing.type === 'free' ? 'free' : `$${tool.pricing.pricePerRequestUsd}/req`})`);
+      spin.succeed(RETRO.ok(`installed ${tool.name}`));
+      info('price:', tool.pricing.type === 'free' ? 'free' : `$${tool.pricing.pricePerRequestUsd}/req`);
     } catch (err) {
-      spinner.fail(String(err));
+      spin.fail(RETRO.err('install failed'));
+      fail(String(err));
     }
   });
 
@@ -197,20 +239,19 @@ program
   .option('-t, --tool <toolId>', 'Call single MCP tool instead of LLM')
   .option('--input <json>', 'Tool input JSON')
   .action(async (prompt: string | undefined, opts: { agent?: string; tool?: string; input?: string }) => {
+    renderBanner('MORV RUNTIME');
     const config = loadConfig();
     const agentId = resolveAgentId(config, opts.agent);
     const agentCfg = getAgentConfig(config, agentId);
     if (!agentCfg) {
-      console.error(chalk.red(`Agent '${agentId}' not found. Run: morv agent create ${agentId}`));
-      process.exit(1);
+      fail(`Agent '${agentId}' not found. Run: morv agent create ${agentId}`);
     }
 
     const model = agentCfg.model ?? config.model;
     const resolvedKey = model?.apiKey ?? (model ? resolveApiKeyFromEnv(model.provider) : undefined);
     if (!opts.tool && !resolvedKey && model?.provider !== 'ollama') {
       const envHint = model ? PROVIDER_ENV_KEYS[model.provider] : 'GROQ_API_KEY';
-      console.error(chalk.red(`Set API key: export ${envHint}=...`));
-      process.exit(1);
+      fail(`Set API key: export ${envHint}=...`);
     }
 
     const apiBase = config.apiBaseUrl ?? 'http://localhost:3001';
@@ -222,15 +263,15 @@ program
 
     const useCredits = Boolean(config.apiKey) && process.env.MORV_USE_CREDITS !== 'false';
     if (useCredits) {
-      console.log(chalk.dim(`  Wallet: Morv credits (platform: ${detectWalletMode()})`));
+      info('wallet:', `Morv credits (platform: ${detectWalletMode()})`);
     } else {
       const wallet = createWalletFromEnv({ allowMock: process.env.NODE_ENV !== 'production' });
-      console.log(chalk.dim(`  Wallet: ${detectWalletMode()} (${wallet.getAddress?.() ?? 'n/a'})`));
+      info('wallet:', `${detectWalletMode()} (${wallet.getAddress?.() ?? 'n/a'})`);
     }
     const tools = [...(agentCfg.tools ?? []), ...(config.installedTools ?? [])];
     const uniqueTools = [...new Set(tools)];
 
-    const spinner = ora('Starting agent...').start();
+    const spin = spinner('starting agent...');
     try {
       const agent = await morv.createAgent(
         {
@@ -246,23 +287,23 @@ program
       );
 
       if (opts.tool) {
-        spinner.text = `Calling MCP tool: ${opts.tool}`;
+        spin.text = RETRO.soft(`calling MCP tool: ${opts.tool}`);
         const input = opts.input ? (JSON.parse(opts.input) as Record<string, unknown>) : {};
         const result = await agent.useTool(opts.tool, input);
-        spinner.succeed('Tool result');
+        spin.succeed(RETRO.ok('tool result'));
         console.log(JSON.stringify(result.output, null, 2));
         agent.guard.destroy();
         return;
       }
 
-      spinner.text = 'Running agent...';
+      spin.text = RETRO.soft('running agent...');
       const answer = await agent.run(prompt ?? 'Hello, what can you help me with?');
-      spinner.succeed('Done');
-      console.log('\n' + answer);
+      spin.succeed(RETRO.ok('completed'));
+      console.log('\n' + RETRO.soft('--- AGENT OUTPUT ---') + '\n' + answer);
       agent.guard.destroy();
     } catch (err) {
-      spinner.fail(String(err));
-      process.exit(1);
+      spin.fail(RETRO.err('run failed'));
+      fail(String(err));
     }
   });
 
@@ -273,6 +314,7 @@ program
   .description('Watch agent budget & status (live)')
   .option('-i, --interval <sec>', 'Refresh interval', '5')
   .action((agentId: string | undefined, opts: { interval: string }) => {
+    renderBanner('MORV MONITOR');
     const config = loadConfig();
     const id = resolveAgentId(config, agentId);
     const agentCfg = getAgentConfig(config, id);
@@ -287,12 +329,12 @@ program
       });
       const s = guard.status();
       console.clear();
-      console.log(chalk.bold(`Morv Monitor — ${s.agentId}`));
-      console.log(`Status: ${s.isPaused ? chalk.red('PAUSED') : chalk.green('ACTIVE')}`);
+      renderBanner(`MORV MONITOR // ${s.agentId}`);
+      console.log(`Status: ${s.isPaused ? RETRO.err('PAUSED') : RETRO.ok('ACTIVE')}`);
       console.log(`Budget: $${s.spentTodayUsd} / $${s.policy.dailyLimitUsd}  (${s.policy.dailyRemainingUsd} left)`);
-      console.log(`Tx/hr: ${s.txLastHour}  |  Tx/min: ${s.txLast60s}`);
-      console.log(chalk.dim(`Categories: ${JSON.stringify(s.byCategoryToday)}`));
-      console.log(chalk.dim(`Refreshing every ${opts.interval}s — Ctrl+C to stop`));
+      console.log(`Tx/hr : ${s.txLastHour}  |  Tx/min: ${s.txLast60s}`);
+      info('category:', JSON.stringify(s.byCategoryToday));
+      info('refresh :', `${opts.interval}s (Ctrl+C to stop)`);
       guard.destroy();
     };
 
@@ -315,8 +357,7 @@ agentCmd
     const config = loadConfig();
     config.agents = config.agents ?? [];
     if (config.agents.find((a) => a.id === id)) {
-      console.error(chalk.red(`Agent '${id}' exists`));
-      process.exit(1);
+      fail(`Agent '${id}' exists`);
     }
     config.agents.push({
       id,
@@ -333,8 +374,8 @@ agentCmd
     });
     if (!config.defaultAgent) config.defaultAgent = id;
     saveConfig(config);
-    console.log(chalk.green(`✓ Agent '${id}' created`));
-    console.log(chalk.dim(`  morv run -a ${id} "Scan Base and DCA if dip detected"`));
+    ok(`Agent '${id}' created`);
+    info('run:', `morv run -a ${id} "Scan Base and DCA if dip detected"`);
   });
 
 agentCmd.command('list').action(() => {
@@ -351,15 +392,16 @@ const guardCmd = program.command('guard').description('AgentGuard — spending p
 guardCmd
   .command('status [agentId]')
   .action((agentId?: string) => {
+    renderBanner('AGENTGUARD STATUS');
     const config = loadConfig();
     const id = resolveAgentId(config, agentId);
     const policy = (getAgentConfig(config, id)?.policy ?? DEFAULT_POLICY) as PolicyConfig;
     const guard = new AgentGuard({ agentId: id, wallet: new MockWallet(), policy, dbPath: dbPath() });
     const s = guard.status();
-    console.log(chalk.bold(`\nAgentGuard — ${s.agentId}`));
-    console.log(`  ${s.isPaused ? chalk.red('PAUSED') : chalk.green('ACTIVE')}`);
-    console.log(`  Spent: $${s.spentTodayUsd} / $${s.policy.dailyLimitUsd}`);
-    console.log(`  Remaining: $${s.policy.dailyRemainingUsd}`);
+    console.log(RETRO.soft(`agent: ${s.agentId}`));
+    console.log(`status   : ${s.isPaused ? RETRO.err('PAUSED') : RETRO.ok('ACTIVE')}`);
+    console.log(`spent    : $${s.spentTodayUsd} / $${s.policy.dailyLimitUsd}`);
+    console.log(`remaining: $${s.policy.dailyRemainingUsd}`);
     guard.destroy();
   });
 
@@ -369,7 +411,7 @@ guardCmd.command('pause <agentId>').action((agentId: string) => {
   const guard = new AgentGuard({ agentId, wallet: new MockWallet(), policy, dbPath: dbPath() });
   guard.pause('Manual pause via CLI');
   guard.destroy();
-  console.log(chalk.yellow(`⏸ ${agentId} paused`));
+  warn(`${agentId} paused`);
 });
 
 guardCmd.command('resume <agentId>').action((agentId: string) => {
@@ -378,7 +420,7 @@ guardCmd.command('resume <agentId>').action((agentId: string) => {
   const guard = new AgentGuard({ agentId, wallet: new MockWallet(), policy, dbPath: dbPath() });
   guard.resume();
   guard.destroy();
-  console.log(chalk.green(`▶ ${agentId} resumed`));
+  ok(`${agentId} resumed`);
 });
 
 guardCmd
@@ -388,7 +430,7 @@ guardCmd
     const config = loadConfig();
     const policy = (getAgentConfig(config, agentId)?.policy ?? DEFAULT_POLICY) as PolicyConfig;
     const guard = new AgentGuard({ agentId, wallet: new MockWallet(), policy, dbPath: dbPath() });
-    guard.history(parseInt(opts.limit, 10)).forEach((tx) => {
+    guard.history(parseInt(opts.limit, 10)).forEach((tx: any) => {
       const icon = tx.status === 'approved' ? chalk.green('✓') : chalk.red('✗');
       console.log(`${icon} $${tx.amountUsd.toFixed(2)} [${tx.category}] ${tx.memo || tx.toAddress.slice(0, 12)}`);
     });
@@ -412,7 +454,7 @@ toolsCmd
       marketplaceUrl: config.marketplaceUrl ?? 'http://localhost:3001/marketplace',
     });
     const result = await morv.searchMarketplace(query);
-    result.tools.forEach((t) => {
+    result.tools.forEach((t: any) => {
       const price = t.pricing.type === 'free' ? 'free' : `$${t.pricing.pricePerRequestUsd}/req`;
       console.log(`${chalk.cyan(t.id)} — ${t.name} [${price}]`);
     });
