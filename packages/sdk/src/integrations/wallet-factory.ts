@@ -16,9 +16,9 @@ import { BaseWallet } from './base-wallet';
 import { BankrWallet } from './wallets';
 import { MockWallet } from './wallets';
 import { CreditClient } from '../core/credits';
-import { CreditWallet } from './credit-wallet';
+import { CreditsOnlyWallet } from './credits-only-wallet';
 
-export type WalletMode = 'base' | 'bankr' | 'mock' | 'credits';
+export type WalletMode = 'base' | 'bankr' | 'credits';
 
 /** Platform wallet — pays onchain (Bankr/Base). Owner env only. */
 export function createPlatformWalletFromEnv(options?: {
@@ -61,30 +61,22 @@ export function createPlatformWalletFromEnv(options?: {
 export const createWalletFromEnv = createPlatformWalletFromEnv;
 
 /**
- * User wallet — Morv credits deducted first, platform wallet pays onchain.
- * Requires user API key + owner Bankr/Base wallet in env.
+ * User wallet — Morv credits via api.morv.run (sign up at morv.run first).
  */
 export function createUserWalletFromEnv(options: {
   apiBaseUrl: string;
   apiKey: string;
   agentId: string;
-  allowMock?: boolean;
-}): CreditWallet {
-  const platformWallet = createPlatformWalletFromEnv({ allowMock: options.allowMock });
+}): CreditsOnlyWallet {
   const credits = new CreditClient({
     apiBaseUrl: options.apiBaseUrl,
     apiKey: options.apiKey,
   });
-  return new CreditWallet(platformWallet, credits, options.agentId);
+  return new CreditsOnlyWallet(credits, options.agentId);
 }
 
 export function detectWalletMode(): WalletMode {
-  if (process.env.MORV_USE_CREDITS === 'false') {
-    if (process.env.MORV_WALLET_PRIVATE_KEY) return 'base';
-    if (process.env.BANKR_API_KEY && process.env.BANKR_AGENT_ADDRESS) return 'bankr';
-    return 'mock';
-  }
   if (process.env.MORV_WALLET_PRIVATE_KEY) return 'base';
   if (process.env.BANKR_API_KEY && process.env.BANKR_AGENT_ADDRESS) return 'bankr';
-  return 'mock';
+  return 'credits';
 }

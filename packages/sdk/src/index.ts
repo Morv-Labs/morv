@@ -1,6 +1,6 @@
 /**
  * Morv SDK
- * Morv Labs — Universal AI Agent Infrastructure
+ * Morv Labs — Onchain agent runtime for Base
  *
  * npm install morv
  *
@@ -46,6 +46,7 @@ export type { X402Provider, X402ClientLike } from './integrations/x402-factory';
 export { CreditClient, InsufficientCreditsError } from './core/credits';
 export type { CreditClientOptions, CreditBalance, DeductCreditsParams } from './core/credits';
 export { CreditWallet } from './integrations/credit-wallet';
+export { CreditsOnlyWallet } from './integrations/credits-only-wallet';
 export { listBaseMcpTools, getBaseMcpTool, BASE_MCP_SERVERS, BASE_MCP_REGISTRY_URL } from './integrations/base-mcp-catalog';
 export { BankrWallet, PrivyWallet, MockWallet, GenericWallet } from './integrations/wallets';
 export type { MockPayment } from './integrations/wallets';

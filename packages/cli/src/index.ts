@@ -13,8 +13,6 @@ import {
   DEFAULT_POLICY,
   PolicyConfig,
   ModelConfig,
-  createWalletFromEnv,
-  detectWalletMode,
   DEFAULT_MODELS,
   PROVIDER_ENV_KEYS,
   resolveApiKeyFromEnv,
@@ -25,8 +23,14 @@ import {
   getAgentConfig,
   resolveAgentId,
   dbPath,
+  resolveModelApiKey,
+  resolveApiBaseUrl,
+  resolveMarketplaceUrl,
+  DEFAULT_MORV_API_URL,
+  maskSecret,
   MorvAgentConfig,
 } from './config';
+import { printMorvBanner, printRunningHeader } from './banner';
 
 const program = new Command();
 
@@ -44,12 +48,16 @@ const RETRO = {
   err: chalk.hex('#ef4444'),
 };
 
-function renderBanner(title = 'MORV.OS') {
-  const line = RETRO.dim('='.repeat(62));
-  console.log('\n' + line);
-  console.log(RETRO.accent(` ${title}  //  BASE AGENT TERMINAL`));
-  console.log(RETRO.soft(' wallet + mcp + x402 + agentguard'));
-  console.log(line);
+function renderBanner(title = 'MORV LABS') {
+  return printMorvBanner({ subtitle: title.replace(/^MORV /, ''), animate: false });
+}
+
+async function renderBannerAnimated(title: string, boot = false) {
+  await printMorvBanner({
+    subtitle: title.replace(/^MORV /, ''),
+    animate: true,
+    boot,
+  });
 }
 
 function info(label: string, value: string) {
@@ -71,15 +79,50 @@ function fail(message: string): never {
 
 const spinner = (label: string) => ora({ text: RETRO.soft(label), spinner: 'dots' }).start();
 
+async function promptApiKeys(opts: {
+  modelProvider: ModelConfig['provider'];
+  requireMorvKey?: boolean;
+}): Promise<{ modelApiKey?: string; morvApiKey?: string }> {
+  const prompts: inquirer.DistinctQuestion[] = [];
+
+  if (opts.modelProvider !== 'ollama') {
+    const envVar = PROVIDER_ENV_KEYS[opts.modelProvider] ?? 'OPENAI_API_KEY';
+    const existing = resolveApiKeyFromEnv(opts.modelProvider);
+    prompts.push({
+      type: 'password',
+      name: 'modelApiKey',
+      message: `${envVar} (paste key, hidden):`,
+      mask: '*',
+      default: existing,
+      validate: (v: string) => (v?.trim() ? true : `Required — get one from your ${opts.modelProvider} provider`),
+    });
+  }
+
+  prompts.push({
+    type: 'password',
+    name: 'morvApiKey',
+    message: 'MORV_API_KEY (mv_... from https://morv.run dashboard):',
+    mask: '*',
+    validate: (v: string) => {
+      if (!opts.requireMorvKey) return true;
+      return v?.trim() ? true : 'Required — sign in at https://morv.run and copy your API key';
+    },
+  });
+
+  return inquirer.prompt(prompts);
+}
+
 // ── INIT ────────────────────────────────────────────────────────────────────
 
 program
   .command('init')
   .description('Initialize Morv project')
-  .action(async () => {
-    renderBanner('MORV INIT');
+  .option('--api-url <url>', 'Self-host only — default is https://api.morv.run')
+  .action(async (opts: { apiUrl?: string }) => {
+    await renderBannerAnimated('MORV INIT', true);
+    const apiBaseUrl = opts.apiUrl?.replace(/\/$/, '') ?? DEFAULT_MORV_API_URL;
+    info('api    :', apiBaseUrl);
     const answers = await inquirer.prompt([
-      { type: 'input', name: 'apiBaseUrl', message: 'Morv API URL:', default: 'http://localhost:3001' },
       {
         type: 'list',
         name: 'modelProvider',
@@ -104,12 +147,24 @@ program
       },
     ]);
 
+    const keys = await promptApiKeys({
+      modelProvider: answers.modelProvider as ModelConfig['provider'],
+      requireMorvKey: true,
+    });
+
+    const morvApiKey = keys.morvApiKey?.trim();
+    if (!morvApiKey) {
+      fail('Morv API key required. Sign in at https://morv.run then run: morv login --key mv_...');
+    }
+
     const config = {
-      apiBaseUrl: answers.apiBaseUrl,
-      marketplaceUrl: `${answers.apiBaseUrl}/marketplace`,
+      apiBaseUrl,
+      marketplaceUrl: `${apiBaseUrl}/marketplace`,
+      apiKey: morvApiKey,
       model: {
         provider: answers.modelProvider as ModelConfig['provider'],
         model: answers.modelName,
+        ...(keys.modelApiKey?.trim() ? { apiKey: keys.modelApiKey.trim() } : {}),
       },
       agents: [] as MorvAgentConfig[],
       installedTools: [] as string[],
@@ -119,7 +174,7 @@ program
     const envVar = PROVIDER_ENV_KEYS[answers.modelProvider as ModelConfig['provider']] ?? 'OPENAI_API_KEY';
     const agentExample = `/**
  * Morv Agent — DCA bot example on Base
- * Run: morv register && morv run "Scan Base and DCA if dip detected"
+ * Run: morv login --key mv_... && morv run "Scan Base and DCA if dip detected"
  *
  * BYOM: set ${envVar} in .env
  * Wallet: BANKR_API_KEY + BANKR_AGENT_ADDRESS
@@ -127,7 +182,7 @@ program
 import { MorvClient } from '@morv-labs/morv';
 
 const morv = new MorvClient({
-  apiBaseUrl: '${answers.apiBaseUrl}',
+  apiBaseUrl: '${apiBaseUrl}',
   apiKey: process.env.MORV_API_KEY!,
 });
 
@@ -144,23 +199,55 @@ console.log(answer);
     fs.writeFileSync(path.join(process.cwd(), 'agent.morv.ts'), agentExample);
 
     ok('Morv initialized');
-    info('next:', 'morv register');
-    info('next:', 'morv agent create demo');
+    if (config.model.apiKey) info('model key:', maskSecret(config.model.apiKey));
+    if (config.apiKey) info('morv key :', maskSecret(config.apiKey));
+    info('next:', 'morv agent create dca-bot --tools base-x402-discovery');
     info('next:', 'morv add base-x402-discovery');
-    info('next:', 'morv run "prompt"');
+    info('next:', "morv run 'Scan Base pools and DCA if dip detected'");
     info('next:', 'morv guard status');
+  });
+
+// ── SETUP (re-enter API keys) ───────────────────────────────────────────────
+
+program
+  .command('setup')
+  .description('Set or update API keys interactively')
+  .action(async () => {
+    await renderBannerAnimated('MORV SETUP');
+    const config = loadConfig();
+    if (!config.model?.provider) {
+      fail('Run morv init first');
+    }
+
+    const keys = await promptApiKeys({
+      modelProvider: config.model.provider,
+      requireMorvKey: false,
+    });
+
+    if (keys.modelApiKey?.trim()) {
+      config.model = { ...config.model, apiKey: keys.modelApiKey.trim() };
+    }
+    if (keys.morvApiKey?.trim()) {
+      config.apiKey = keys.morvApiKey.trim();
+    }
+    saveConfig(config);
+    ok('Keys saved to .morv/config.json');
+    if (config.model.apiKey) info('model key:', maskSecret(config.model.apiKey));
+    if (config.apiKey) info('morv key :', maskSecret(config.apiKey));
   });
 
 // ── REGISTER ────────────────────────────────────────────────────────────────
 
 program
   .command('register')
-  .description('Register on Morv control plane (get API key)')
+  .description('(Deprecated) Use https://morv.run to sign up, then morv login')
   .option('-e, --email <email>', 'Email')
   .action(async (opts: { email?: string }) => {
-    renderBanner('MORV REGISTER');
+    await renderBannerAnimated('MORV REGISTER');
+    warn('CLI registration is deprecated. Sign in at https://morv.run and copy your API key.');
+    warn('Then run: morv login --key mv_...');
     const config = loadConfig();
-    const morv = new MorvClient({ apiBaseUrl: config.apiBaseUrl ?? 'http://localhost:3001' });
+    const morv = new MorvClient({ apiBaseUrl: resolveApiBaseUrl(config) });
     const spin = spinner('registering account...');
     try {
       const { accountId, apiKey, creditsUsd } = await morv.register(opts.email);
@@ -184,15 +271,27 @@ program
 program
   .command('login')
   .option('-k, --key <key>', 'API key')
-  .action((opts: { key?: string }) => {
-    renderBanner('MORV LOGIN');
+  .action(async (opts: { key?: string }) => {
+    await renderBannerAnimated('MORV LOGIN');
     const config = loadConfig();
-    config.apiKey = opts.key ?? process.env.MORV_API_KEY;
-    if (!config.apiKey) {
-      fail('Provide --key or MORV_API_KEY');
+    let apiKey = opts.key ?? process.env.MORV_API_KEY;
+    if (!apiKey) {
+      const { morvApiKey } = await inquirer.prompt([
+        {
+          type: 'password',
+          name: 'morvApiKey',
+          message: 'MORV_API_KEY (mv_... from morv.run):',
+          mask: '*',
+          validate: (v: string) => (v?.trim() ? true : 'API key required'),
+        },
+      ]);
+      apiKey = morvApiKey.trim();
     }
+    if (!apiKey) fail('API key required');
+    config.apiKey = apiKey;
     saveConfig(config);
     ok('API key saved');
+    info('morv key:', maskSecret(apiKey));
   });
 
 // ── ADD (top-level MCP install) ─────────────────────────────────────────────
@@ -201,7 +300,7 @@ program
   .command('add <toolId>')
   .description('Install MCP tool from marketplace')
   .action(async (toolId: string) => {
-    renderBanner('MORV TOOL INSTALL');
+    await renderBannerAnimated('MORV TOOL INSTALL');
     const config = loadConfig();
     config.installedTools = config.installedTools ?? [];
     if (config.installedTools.includes(toolId)) {
@@ -210,16 +309,15 @@ program
     }
     const spin = spinner(`installing ${toolId}...`);
     try {
-      const morv = new MorvClient({
-        apiKey: config.apiKey,
-        apiBaseUrl: config.apiBaseUrl ?? 'http://localhost:3001',
-      });
-      const result = await morv.searchMarketplace(toolId);
-      const tool = result.tools.find((t: { id: string }) => t.id === toolId);
-      if (!tool) {
+      const apiBase = resolveApiBaseUrl(config);
+      const headers: Record<string, string> = {};
+      if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`;
+      const res = await fetch(`${apiBase}/marketplace/tools/${encodeURIComponent(toolId)}`, { headers });
+      if (!res.ok) {
         spin.fail(RETRO.err(`tool '${toolId}' not found`));
         return;
       }
+      const tool = (await res.json()) as { id: string; name: string; pricing: { type: string; pricePerRequestUsd?: number } };
       config.installedTools.push(toolId);
       saveConfig(config);
       spin.succeed(RETRO.ok(`installed ${tool.name}`));
@@ -239,7 +337,7 @@ program
   .option('-t, --tool <toolId>', 'Call single MCP tool instead of LLM')
   .option('--input <json>', 'Tool input JSON')
   .action(async (prompt: string | undefined, opts: { agent?: string; tool?: string; input?: string }) => {
-    renderBanner('MORV RUNTIME');
+    await renderBannerAnimated('MORV RUNTIME', true);
     const config = loadConfig();
     const agentId = resolveAgentId(config, opts.agent);
     const agentCfg = getAgentConfig(config, agentId);
@@ -248,26 +346,27 @@ program
     }
 
     const model = agentCfg.model ?? config.model;
-    const resolvedKey = model?.apiKey ?? (model ? resolveApiKeyFromEnv(model.provider) : undefined);
+    const resolvedKey = resolveModelApiKey(config, model);
     if (!opts.tool && !resolvedKey && model?.provider !== 'ollama') {
       const envHint = model ? PROVIDER_ENV_KEYS[model.provider] : 'GROQ_API_KEY';
-      fail(`Set API key: export ${envHint}=...`);
+      fail(`No model API key. Run: morv setup   (or export ${envHint}=...)`);
     }
 
-    const apiBase = config.apiBaseUrl ?? 'http://localhost:3001';
+    if (!config.apiKey) {
+      fail('No Morv API key. Sign in at https://morv.run then run: morv login --key mv_...');
+    }
+
+    const apiBase = resolveApiBaseUrl(config);
     const morv = new MorvClient({
       apiKey: config.apiKey,
       apiBaseUrl: apiBase,
       dbPath: dbPath(),
     });
 
-    const useCredits = Boolean(config.apiKey) && process.env.MORV_USE_CREDITS !== 'false';
-    if (useCredits) {
-      info('wallet:', `Morv credits (platform: ${detectWalletMode()})`);
-    } else {
-      const wallet = createWalletFromEnv({ allowMock: process.env.NODE_ENV !== 'production' });
-      info('wallet:', `${detectWalletMode()} (${wallet.getAddress?.() ?? 'n/a'})`);
-    }
+    info('wallet:', 'Morv credits (server-side settlement via api.morv.run)');
+    const runPrompt = prompt ?? 'Hello, what can you help me with?';
+    printRunningHeader(agentId, opts.tool ? `tool:${opts.tool}` : runPrompt);
+
     const tools = [...(agentCfg.tools ?? []), ...(config.installedTools ?? [])];
     const uniqueTools = [...new Set(tools)];
 
@@ -282,8 +381,7 @@ program
           },
           policy: agentCfg.policy,
           tools: uniqueTools,
-        },
-        useCredits ? undefined : createWalletFromEnv({ allowMock: process.env.NODE_ENV !== 'production' })
+        }
       );
 
       if (opts.tool) {
@@ -313,8 +411,8 @@ program
   .command('monitor [agentId]')
   .description('Watch agent budget & status (live)')
   .option('-i, --interval <sec>', 'Refresh interval', '5')
-  .action((agentId: string | undefined, opts: { interval: string }) => {
-    renderBanner('MORV MONITOR');
+  .action(async (agentId: string | undefined, opts: { interval: string }) => {
+    await renderBannerAnimated('MORV MONITOR');
     const config = loadConfig();
     const id = resolveAgentId(config, agentId);
     const agentCfg = getAgentConfig(config, id);
@@ -391,8 +489,8 @@ const guardCmd = program.command('guard').description('AgentGuard — spending p
 
 guardCmd
   .command('status [agentId]')
-  .action((agentId?: string) => {
-    renderBanner('AGENTGUARD STATUS');
+  .action(async (agentId?: string) => {
+    await renderBannerAnimated('AGENTGUARD STATUS');
     const config = loadConfig();
     const id = resolveAgentId(config, agentId);
     const policy = (getAgentConfig(config, id)?.policy ?? DEFAULT_POLICY) as PolicyConfig;
@@ -451,7 +549,7 @@ toolsCmd
     const config = loadConfig();
     const morv = new MorvClient({
       apiKey: config.apiKey,
-      marketplaceUrl: config.marketplaceUrl ?? 'http://localhost:3001/marketplace',
+      marketplaceUrl: resolveMarketplaceUrl(config),
     });
     const result = await morv.searchMarketplace(query);
     result.tools.forEach((t: any) => {
@@ -471,13 +569,13 @@ const billingCmd = program.command('billing').description('Usage & billing');
 
 billingCmd.command('usage').action(async () => {
   const config = loadConfig();
-  const morv = new MorvClient({ apiKey: config.apiKey, apiBaseUrl: config.apiBaseUrl ?? 'http://localhost:3001' });
+  const morv = new MorvClient({ apiKey: config.apiKey, apiBaseUrl: resolveApiBaseUrl(config) });
   console.log(JSON.stringify(await morv.billing.getUsage(), null, 2));
 });
 
 billingCmd.command('statement').action(async () => {
   const config = loadConfig();
-  const morv = new MorvClient({ apiKey: config.apiKey, apiBaseUrl: config.apiBaseUrl ?? 'http://localhost:3001' });
+  const morv = new MorvClient({ apiKey: config.apiKey, apiBaseUrl: resolveApiBaseUrl(config) });
   console.log(JSON.stringify(await morv.billing.getStatement(), null, 2));
 });
 

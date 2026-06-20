@@ -1,7 +1,7 @@
 {
   "name": "@morv/cli",
   "version": "0.1.0",
-  "description": "Morv CLI — AI agent SDK command line tool",
+  "description": "Morv CLI — onchain agent runtime for Base (init, run, guard, tools)",
   "bin": {
     "morv": "./dist/index.js"
   },

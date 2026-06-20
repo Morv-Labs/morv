@@ -36,6 +36,28 @@ export interface ModelRunner {
   run(options: RunOptions): Promise<ModelResponse>;
 }
 
+const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  provider: string,
+  maxAttempts = 4
+): Promise<Response> {
+  let lastRes: Response | undefined;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, init);
+    lastRes = res;
+    if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === maxAttempts - 1) {
+      return res;
+    }
+    const delayMs = Math.min(1500 * 2 ** attempt, 12000);
+    console.warn(`[Morv] ${provider} ${res.status} — retrying in ${delayMs}ms`);
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return lastRes!;
+}
+
 class OpenAIRunner implements ModelRunner {
   constructor(
     private config: ModelConfig,
@@ -75,11 +97,15 @@ class OpenAIRunner implements ModelRunner {
       headers['x-api-key'] = config.apiKey;
     }
 
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
+    const res = await fetchWithRetry(
+      `${baseUrl}/chat/completions`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      },
+      config.provider
+    );
 
     if (!res.ok) throw new Error(`${config.provider} error ${res.status}: ${await res.text()}`);
     const data = (await res.json()) as {

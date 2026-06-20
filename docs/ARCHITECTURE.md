@@ -2,7 +2,7 @@
 
 ## Overview
 
-Morv is a TypeScript SDK and CLI for autonomous agents on Base. Five modules compose a single stack:
+Morv is an onchain agent runtime — TypeScript SDK and CLI for autonomous agents on Base. Five modules compose a single stack:
 
 | Layer | Module | Role |
 |-------|--------|------|

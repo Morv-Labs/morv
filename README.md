@@ -19,9 +19,21 @@
 
 <br />
 
-**The operating layer for autonomous agents that move money on Base.**
+**Onchain agent runtime for Base.**
 
-Morv is not another chat wrapper. It is open SDK + CLI infrastructure that wires **BYOM models**, **MCP tools**, **x402 pay-per-request**, and **AgentGuard spending policy** into one agent loop — so agents can pay, trade, and call APIs autonomously without draining wallets.
+*Code agents that move money.*
+
+Morv is not another chat wrapper. Open **SDK + CLI** that runs the full agent loop — **BYOM models**, **MCP tools**, **x402 pay-per-request**, and **AgentGuard spend limits** — so agents call APIs and settle **USDC on Base** without draining wallets.
+
+## Open source vs hosted
+
+| **This repo (MIT)** | **[morv.run](https://morv.run) hosted** |
+|---------------------|------------------------------------------|
+| `@morv-labs/morv` SDK + `morv` CLI | Agent console, credits, billing |
+| AgentGuard engine (local) | MCP gateway routing + marketplace |
+| Wallet from your env keys | Optional — connect via `MORV_API_KEY` |
+
+Build locally, ship to production, or plug into the hosted gateway — same SDK.
 
 ```bash
 npm install @morv-labs/morv
@@ -47,7 +59,7 @@ npx morv run "Scan Base pools and DCA $50 if ETH dips 3%"
 | **Chain** | Base mainnet (8453) |
 | **USDC** | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (6 decimals) |
 | **SDK** | [`@morv-labs/morv`](https://www.npmjs.com/package/@morv-labs/morv) on npm |
-| **App** | [morv.run](https://morv.run) — console + gateway |
+| **App** | [morv.run](https://morv.run) — hosted console + MCP gateway |
 | **Status** | SDK v0.1 · MIT · active development |
 
 ---
@@ -66,7 +78,7 @@ When working in Morv:
 
 ## System overview
 
-Morv stacks five layers for production agent workflows:
+Morv is an onchain agent runtime — five layers for production agent workflows:
 
 | Layer | Module | Role |
 |-------|--------|------|

@@ -1,6 +1,6 @@
 # Morv — Quickstart (5 minutes)
 
-Get a policy-guarded agent running on Base.
+Spin up an onchain agent runtime on Base — policy-guarded, wallet-backed, ready in five minutes.
 
 ## Prerequisites
 

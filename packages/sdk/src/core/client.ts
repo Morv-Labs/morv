@@ -31,7 +31,7 @@ export class Agent {
   readonly x402: X402ClientLike;
   private model: ModelRunner;
   private conversationHistory: Message[] = [];
-  private maxToolDepth = 5;
+  private maxToolDepth = 8;
 
   constructor(params: {
     config: AgentConfig;
@@ -45,6 +45,11 @@ export class Agent {
     this.model = createModelRunner(params.config.model);
   }
 
+  /** Map OpenAI-safe tool name back to marketplace tool id. */
+  private toolNameToId(name: string): string {
+    return name.replace(/_/g, '-');
+  }
+
   /** Run agent with BYOM + MCP tools (full platform flow). */
   async run(prompt: string, systemPrompt?: string, depth = 0): Promise<string> {
     if (prompt) {
@@ -52,9 +57,16 @@ export class Agent {
     }
 
     if (depth > this.maxToolDepth) {
-      return 'Max tool call depth reached. Stopping to prevent infinite loop.';
+      const sys = systemPrompt ?? this.defaultSystemPrompt();
+      const response = await this.model.run({
+        messages: [...this.conversationHistory],
+        systemPrompt: `${sys}\nYou have used enough tools. Summarize findings for the user in plain English. Do not request more tools.`,
+      });
+      this.conversationHistory.push({ role: 'assistant', content: response.content });
+      return response.content || 'Completed tool calls but could not synthesize a final answer.';
     }
 
+    const sys = systemPrompt ?? this.defaultSystemPrompt();
     const tools = this.mcp.list().map((t) => ({
       name: t.id.replace(/[^a-zA-Z0-9_]/g, '_'),
       description: `${t.description} (Cost: $${t.pricing.pricePerRequestUsd ?? 0}/call)`,
@@ -66,23 +78,23 @@ export class Agent {
 
     const response = await this.model.run({
       messages: [...this.conversationHistory],
-      systemPrompt: systemPrompt ?? this.defaultSystemPrompt(),
+      systemPrompt: sys,
       tools: tools.length ? tools : undefined,
     });
 
     if (response.toolCalls?.length) {
       for (const call of response.toolCalls) {
-        const toolId = call.name.replace(/_/g, '-');
+        const toolId = this.toolNameToId(call.name);
         try {
           const result = await this.mcp.call(toolId, call.arguments, this.id);
           this.conversationHistory.push({
-            role: 'assistant',
-            content: `Tool ${toolId} returned: ${JSON.stringify(result.output)}`,
+            role: 'user',
+            content: `[Tool ${toolId} result]\n${JSON.stringify(result.output)}`,
           });
         } catch (err) {
           this.conversationHistory.push({
-            role: 'assistant',
-            content: `Tool ${toolId} failed: ${err}`,
+            role: 'user',
+            content: `[Tool ${toolId} error]\n${String(err)}`,
           });
         }
       }
@@ -133,7 +145,8 @@ Installed MCP tools: ${installedTools || 'none'}.
 All payments are enforced by AgentGuard spending policies.
 Budget: ${JSON.stringify(this.status().policy)}
 You spend Morv credits. Platform settles onchain via Base/Bankr.
-Use tools efficiently — paid tools deduct credits per call.`;
+Use tools when needed, then answer the user directly. Do not call the same tool repeatedly.
+After tool results arrive, give a concise final answer without more tool calls unless essential.`;
   }
 }
 
@@ -149,8 +162,11 @@ export class MorvClient {
   constructor(config: MorvConfig = {}) {
     this.config = {
       apiKey: config.apiKey,
-      apiBaseUrl: config.apiBaseUrl ?? 'http://localhost:3001',
-      marketplaceUrl: config.marketplaceUrl ?? 'http://localhost:3001/marketplace',
+      apiBaseUrl: config.apiBaseUrl ?? process.env.MORV_API_BASE_URL ?? 'https://api.morv.run',
+      marketplaceUrl:
+        config.marketplaceUrl ??
+        process.env.MORV_MARKETPLACE_URL ??
+        `${config.apiBaseUrl ?? process.env.MORV_API_BASE_URL ?? 'https://api.morv.run'}/marketplace`,
       dbPath: config.dbPath ?? 'morv.db',
       logLevel: config.logLevel ?? 'info',
     };
@@ -182,13 +198,12 @@ export class MorvClient {
             apiBaseUrl: this.config.apiBaseUrl,
             apiKey: this.config.apiKey,
             agentId: agentConfig.id,
-            allowMock: process.env.NODE_ENV !== 'production',
           })
         : undefined);
 
     if (!resolvedWallet) {
       throw new Error(
-        'Wallet required. Pass wallet or set apiKey (Morv credits) via MorvClient.register().'
+        'Wallet required. Sign in at https://morv.run then run: morv login --key mv_...'
       );
     }
 

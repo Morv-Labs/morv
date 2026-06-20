@@ -4,7 +4,7 @@ Entry point for AI agents working in this repository.
 
 ## What Morv is
 
-Morv is infrastructure for autonomous agents on **Base (8453)**:
+Morv is an **onchain agent runtime** for **Base (8453)** — open SDK + CLI for agents that call tools, pay APIs, and settle USDC with spend guardrails:
 
 - **AgentGuard** — spending policy before any payment
 - **MCP** — tool install and execution
@@ -12,7 +12,7 @@ Morv is infrastructure for autonomous agents on **Base (8453)**:
 - **BYOM** — bring your own model (Groq, OpenAI, Anthropic, etc.)
 - **Wallets** — USDC on Base via Bankr or direct key
 
-This repo contains the **open-source SDK** (`@morv-labs/morv`) and **CLI** (`morv`). The hosted app lives at [morv.run](https://morv.run).
+This repo contains the **open-source SDK** (`@morv-labs/morv`) and **CLI** (`morv`). Hosted console, credits, and MCP gateway live at [morv.run](https://morv.run).
 
 ## Onboarding order
 

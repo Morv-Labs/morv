@@ -17,8 +17,9 @@ import {
   MarketplaceSearchResult,
 } from '../types';
 
+const DEFAULT_API_BASE = process.env.MORV_API_BASE_URL ?? 'https://api.morv.run';
 const DEFAULT_MARKETPLACE_URL =
-  process.env.MORV_MARKETPLACE_URL ?? 'http://localhost:3001/marketplace';
+  process.env.MORV_MARKETPLACE_URL ?? `${DEFAULT_API_BASE}/marketplace`;
 
 export interface McpRegistryOptions {
   guard?: AgentGuard;

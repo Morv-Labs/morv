@@ -1,7 +1,7 @@
 {
   "name": "@morv-labs/morv",
   "version": "0.1.0",
-  "description": "Infrastructure for autonomous AI agents on Base — MCP, x402, AgentGuard",
+  "description": "Onchain agent runtime for Base — MCP tools, x402 USDC payments, AgentGuard spend limits",
   "publishConfig": {
     "access": "public"
   },
@@ -18,9 +18,13 @@
   },
   "keywords": [
     "ai-agent",
+    "agent-runtime",
+    "autonomous-agents",
     "mcp",
     "x402",
     "base",
+    "usdc",
+    "pay-per-use",
     "crypto",
     "agentguard",
     "morv"
