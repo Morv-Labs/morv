@@ -3,6 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "description": "Morv — onchain agent runtime for Base (SDK + CLI: MCP, x402, AgentGuard)",
+  "homepage": "https://morv.run",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Morv-Labs/morv.git"
+  },
+  "keywords": [
+    "agent-runtime",
+    "ai-agent",
+    "base",
+    "x402",
+    "mcp",
+    "agentguard"
+  ],
   "workspaces": [
     "packages/*"
   ],

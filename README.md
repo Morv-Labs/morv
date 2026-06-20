@@ -8,7 +8,7 @@
 <div align="center">
   <img src="logo.jpg" alt="Morv Labs" width="220" />
   <br /><br />
-  <img src="morv-hero.gif" alt="Morv agent terminal demo" width="720" />
+  <img src="morv-hero.gif" alt="Morv agent runtime demo" width="720" />
   <br /><br />
   <a href="https://morv.run"><strong>morv.run</strong></a>
   &nbsp;·&nbsp;
@@ -29,8 +29,9 @@ Morv is not another chat wrapper. Open **SDK + CLI** that runs the full agent lo
 
 | **This repo (MIT)** | **[morv.run](https://morv.run) hosted** |
 |---------------------|------------------------------------------|
-| `@morv-labs/morv` SDK + `morv` CLI | Agent console, credits, billing |
+| `@morv-labs/morv` SDK + `morv` CLI | [Morv Agent](https://morv.run/agents) chat + credits |
 | AgentGuard engine (local) | MCP gateway routing + marketplace |
+| Integrity Guard & Collective Memory (local) | Hosted agent orchestration |
 | Wallet from your env keys | Optional — connect via `MORV_API_KEY` |
 
 Build locally, ship to production, or plug into the hosted gateway — same SDK.
